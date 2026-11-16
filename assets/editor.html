@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Island Studio</title>
+<style>
+  @font-face{font-family:Inter;src:url('Inter.ttf')}*{box-sizing:border-box}
+  :root{color-scheme:dark;--bg:#191715;--panel:#23201d;--line:#40342d;--muted:#bea99a;--ink:#f4e8dd;--accent:#d59878}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.45 Inter,'Segoe UI',sans-serif}
+  h1,h2,p{margin:0}h1{font:38px/1 Georgia,serif;letter-spacing:-.05em}h2{font-size:14px}.muted,small{color:var(--muted)}
+  header{position:sticky;z-index:3;top:0;padding:16px 22px;background:#1b1816;border-bottom:1px solid var(--line);
+         display:flex;align-items:end;justify-content:space-between;gap:14px}
+  header p{margin-top:6px}.actions,.tabs,.preset,.row{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+  button,select,input{font:inherit;color:inherit}button,select,input[type=text]{border:1px solid var(--line);background:#2b241f;border-radius:8px;padding:6px 9px}
+  button{cursor:pointer}button:hover,button[aria-pressed=true]{background:#423027;border-color:#875d47}
+  button:disabled{opacity:.35;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible{outline:1px solid var(--accent)}
+  input[type=range],input[type=checkbox]{accent-color:var(--accent)}input[type=color]{background:none;border:0;width:35px;padding:0}
+  main{display:grid;grid-template-columns:minmax(260px, .82fr) minmax(325px,1fr);gap:16px;padding:16px 22px;align-items:start}
+  .column{display:grid;gap:12px}.box{border:1px solid var(--line);border-radius:13px;background:var(--panel);padding:12px;min-width:0}
+  .box h2{margin-bottom:8px}.previewBox{position:sticky;top:102px}.tabs button{flex:1;white-space:nowrap}
+  #stage{min-height:198px;display:grid;place-items:center;background:radial-gradient(ellipse at center,#3a2c24,#1b1816 76%);
+         border-radius:9px;margin-top:10px;padding:12px;overflow:hidden}
+  #preview{background:linear-gradient(120deg,var(--a),var(--b));color:#fff1e3;display:flex;align-items:center;
+           gap:7px;position:relative;max-width:100%;min-height:36px;transition:width .22s, border-radius .22s;overflow:hidden}
+  #preview[data-state="2"]{flex-wrap:wrap;min-height:110px}.tile{display:flex;align-items:center;min-width:0;gap:3px;white-space:nowrap}
+  .tile[data-id=T],.tile[data-id=S]{flex:1;overflow:hidden;text-overflow:ellipsis;display:block}.tile[data-id=S]{opacity:.67;font-size:.8em}
+  .art{width:27px;height:27px;border-radius:7px;background:linear-gradient(125deg,#a65e43,#442c25);display:grid;place-items:center;overflow:hidden;flex:none}
+  #preview[data-state="2"] .art{width:46px;height:46px}.art img,.art canvas{width:100%;height:100%;object-fit:cover}.art .disc{border:1px solid #edb196;border-radius:50%;width:50%;height:50%;display:grid;place-items:center}.disc::after{content:"";width:4px;height:4px;border:1px solid #edb196;border-radius:50%}
+  .wave{display:flex;align-items:center;gap:3px}.wave i{width:2px;height:12px;border-radius:2px;background:#de9c7a;animation:beat .7s infinite alternate ease-in-out}.wave i:nth-child(2){animation-delay:-.35s}.wave i:nth-child(3){animation-delay:-.52s}.wave i:nth-child(4){animation-delay:-.17s}@keyframes beat{from{transform:scaleY(.35)}to{transform:scaleY(1)}}
+  .chip{padding:4px 6px;border-radius:6px;background:#dfb49c24;font-size:.79em}.columns{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px}
+  .field{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center;min-height:27px}.field output{color:var(--muted);font-size:11px;min-width:30px;text-align:right}
+  .field.range input{grid-column:1/-1;margin:0 0 3px;width:100%}.order{display:grid;gap:4px}
+  .block{display:flex;align-items:center;gap:6px;padding:2px 5px;border-bottom:1px solid #3f3329}.block span{flex:1}.block button{padding:2px 7px}.block:has(input:not(:checked)){opacity:.55}
+  #status{min-height:20px;margin-top:8px;color:#e7ac8e}.preset input{width:115px}.preset select{min-width:90px;max-width:100%}
+  .motion{margin-top:8px}@media(max-width:690px){main{grid-template-columns:1fr}.previewBox{position:static}header{position:static}}
+</style>
+<header><div><h1>Island Studio</h1><p class="muted">Состояния, виджеты и движение капсулы</p></div><div class="actions"><button data-send="import">Импорт</button><button data-send="export">Экспорт</button><button id="reset">Сброс</button></div></header>
+<main>
+  <div class="column">
+    <section class="box previewBox">
+      <h2>Предпросмотр</h2>
+      <div class="tabs" id="tabs"><button data-state="0">Мини</button><button data-state="1">Трек</button><button data-state="2">Плеер</button></div>
+      <div id="stage"><div id="preview"></div></div>
+      <button class="motion" id="motion">Проверить эффект захвата</button>
+    </section>
+    <section class="box"><h2>Пресеты</h2>
+      <div class="preset"><input id="name" type="text" maxlength="32" placeholder="Имя пресета"><button id="save">Сохранить</button>
+        <select id="presets" aria-label="Пресеты"></select><button id="load">Загрузить</button></div>
+      <p id="status" role="status"></p><small>Файл .island включает настройки и GIF.</small>
+    </section>
+    <section class="box"><h2>Иконка и GIF</h2>
+      <div class="actions"><button data-send="gif">Выбрать GIF</button><button data-send="remove-gif">Убрать GIF</button></div>
+      <div class="columns" id="gifFields"></div>
+    </section>
+  </div>
+  <div class="column">
+    <section class="box"><h2>Блоки текущего состояния</h2><div id="order" class="order"></div></section>
+    <section class="box"><h2>Вид и движение</h2>
+      <div class="actions"><button id="warm">Тёплый</button><button id="black">Графит</button><button id="soft">Мягкое движение</button><button id="bold">Выразительное</button></div>
+      <div class="columns" id="visualFields"></div>
+    </section>
+    <section class="box"><h2>Когда капсула меняет состояние</h2><div class="columns" id="ruleFields"></div></section>
+  </div>
+</main>
+<script>
+const host = window.chrome.webview;
+const $ = id => document.getElementById(id);
+const preview = $('preview');
+const names = {A:'Обложка или GIF',T:'Название',S:'Исполнитель',M:'Индикатор звука',P:'Кнопки плеера',B:'Браузер',F:'Открыть музыку',C:'Таймер'};
+const fields = [
+  ['idle','Бездействие','select',[[0,'Выкл.'],[2,'2 сек'],[4,'4 сек'],[8,'8 сек'],[15,'15 сек'],[30,'30 сек']]],
+  ['hover','Раскрывать при наведении','check'],['wake','Показывать новый трек','check'],
+  ['click','Плеер по клику','check'],['icon','Иконка','select',[[0,'Обложка'],[1,'Стандартная'],[2,'Мой GIF']]],
+  ['gifMini','Анимация в мини','check'],['gifTrack','Анимация в треке','check'],
+  ['fit','Кадрирование','select',[[0,'Заполнить'],[1,'Вписать']]],['gifSpeed','Скорость GIF','range',25,250],
+  ['mini','Ширина мини','range',68,220],['track','Ширина трека','range',150,460],['player','Ширина плеера','range',320,620],
+  ['radius','Скругление','range',8,50],['pad','Отступ','range',6,22],['font','Шрифт','select',[[0,'Inter'],[1,'Segoe UI'],[2,'Consolas']]],
+  ['size','Размер текста, %','range',80,135],['opacity','Непрозрачность, %','range',55,100],
+  ['outline','Обводка','check'],['gradient','Движение градиента','check'],['speed','Скорость переходов, %','range',50,200],
+  ['drag','Сила деформации, %','range',0,180],['first','Первый цвет','color'],['second','Второй цвет','color'],
+  ['artPalette','Акцент из обложки','check']
+];
+let config = null, state = 1, gif = '', pending, revision = 0;
+const send = text => host.postMessage(text);
+const color = n => '#' + n.toString(16).padStart(6,'0');
+function group(parent, from, to) {
+  for (const [id,title,kind,a,b] of fields.slice(from,to)) {
+    const wrapper = document.createElement('label');
+    wrapper.className = 'field ' + kind;
+    const caption = document.createElement('span'); caption.textContent = title; wrapper.append(caption);
+    const input = document.createElement(kind === 'select' ? 'select' : 'input');
+    input.id = id;
+    if (kind === 'select') for (const [value,label] of a) input.add(new Option(label,value));
+    else input.type = kind === 'check' ? 'checkbox' : kind;
+    if (kind === 'range') {
+      input.min = a; input.max = b;
+      const output = document.createElement('output'); output.id = id + 'Value'; wrapper.append(output);
+    }
+    wrapper.append(input);
+    input.oninput = () => {
+      if (!config) return;
+      config[id] = kind === 'check' ? Number(input.checked) : kind === 'color' ? parseInt(input.value.slice(1),16) : Number(input.value);
+      if (kind === 'range') $(id+'Value').textContent = config[id];
+      render();
+      apply();
+    };
+    $(parent).append(wrapper);
+  }
+}
+group('ruleFields',0,4); group('gifFields',4,9); group('visualFields',9,24);
+function apply() {
+  clearTimeout(pending);
+  pending = setTimeout(commit, 80);
+}
+function commit() {
+  clearTimeout(pending);
+  if (config) send('apply:' + [...config.rows, ...fields.map(([id]) => config[id])].join('|'));
+}
+function setForm() {
+  for (const [id,,kind] of fields) {
+    const input = $(id);
+    if (kind === 'check') input.checked = Boolean(config[id]);
+    else input.value = kind === 'color' ? color(config[id]) : config[id];
+    if (kind === 'range') $(id+'Value').textContent = config[id];
+  }
+  order(); render();
+}
+function order() {
+  const row = config.rows[state];
+  $('order').replaceChildren();
+  for (const id of [...row, ...Object.keys(names).filter(id => !row.includes(id))]) {
+    const line = document.createElement('label'); line.className = 'block';
+    const enabled = document.createElement('input'); enabled.type = 'checkbox'; enabled.checked = row.includes(id);
+    const title = document.createElement('span'); title.textContent = names[id];
+    enabled.onchange = () => {
+      const next = enabled.checked ? row + id : row.replace(id,'');
+      if (!next) { enabled.checked = true; return; }
+      config.rows[state] = next; order(); render(); apply();
+    };
+    line.append(enabled,title);
+    for (const delta of [-1,1]) {
+      const button = document.createElement('button'); button.textContent = delta < 0 ? '↑' : '↓';
+      button.type = 'button'; button.ariaLabel = delta < 0 ? 'Выше' : 'Ниже';
+      const index = row.indexOf(id), other = index + delta;
+      button.disabled = index < 0 || other < 0 || other >= row.length;
+      button.onclick = event => {
+        event.preventDefault();
+        const next = [...row]; [next[index],next[other]] = [next[other],next[index]];
+        config.rows[state] = next.join(''); order(); render(); apply();
+      };
+      line.append(button);
+    }
+    $('order').append(line);
+  }
+}
+async function showGif(tile, animated, ticket) {
+  if (!('ImageDecoder' in window)) {
+    const img = document.createElement('img'); img.src = gif; img.style.objectFit = config.fit ? 'contain' : 'cover'; tile.append(img);
+    return;
+  }
+  try {
+    const bytes = Uint8Array.from(atob(gif.split(',')[1]), c => c.charCodeAt(0));
+    const decoder = new ImageDecoder({data:bytes,type:'image/gif'});
+    await decoder.tracks.ready;
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 96;
+    const ctx = canvas.getContext('2d');
+    if (ticket !== revision) { decoder.close(); return; }
+    tile.append(canvas);
+    let frame = 0;
+    async function draw() {
+      if (ticket !== revision) { decoder.close(); return; }
+      try {
+        const {image} = await decoder.decode({frameIndex:frame});
+        const x = image.displayWidth, y = image.displayHeight;
+        const scale = (config.fit ? Math.min : Math.max)(96/x,96/y);
+        ctx.clearRect(0,0,96,96); ctx.drawImage(image,(96-x*scale)/2,(96-y*scale)/2,x*scale,y*scale);
+        const delay = Math.max(20,(image.duration || 100000)/1000*100/config.gifSpeed);
+        image.close();
+        if (animated && decoder.tracks.selectedTrack.frameCount > 1) {
+          frame = (frame+1)%decoder.tracks.selectedTrack.frameCount;
+          setTimeout(draw,delay);
+        } else decoder.close();
+      } catch { decoder.close(); }
+    }
+    draw();
+  } catch {}
+}
+function render() {
+  if (!config) return;
+  const ticket = ++revision;
+  for (const tab of $('tabs').children) tab.setAttribute('aria-pressed',Number(tab.dataset.state) === state);
+  preview.dataset.state = state;
+  preview.style.cssText = `width:${[config.mini,config.track,config.player][state]}px;border-radius:${config.radius}px;
+      padding:${Math.min(config.pad,state===2 ? 22 : 12)}px;opacity:${config.opacity/100};border:${config.outline?'1px solid #c69b7c77':'none'};
+      --a:${color(config.artPalette?0x593a2f:config.first)};--b:${color(config.second)};font-family:${['Inter','Segoe UI','Consolas'][config.font]};
+      font-size:${config.size/100*(state===2?16:13)}px`;
+  preview.replaceChildren();
+  for (const id of config.rows[state]) {
+    const block = document.createElement('span'); block.className = 'tile'; block.dataset.id = id;
+    if (id === 'A') {
+      block.classList.add('art');
+      if (gif && config.icon===2 && state!==2) showGif(block,state===0?config.gifMini:config.gifTrack,ticket);
+      else { const disc = document.createElement('i'); disc.className = 'disc'; block.append(disc); }
+    } else if (id === 'M') {
+      block.classList.add('wave'); for(let i=0;i<4;i++) block.append(document.createElement('i'));
+    } else {
+      block.textContent = {T:'Midnight Signal',S:'North Arcade',P:'◀  Ⅱ  ▶',B:'Browser',F:'Open music',C:'5:00'}[id];
+      if ('PBFC'.includes(id)) block.classList.add('chip');
+    }
+    preview.append(block);
+  }
+}
+for (const tab of $('tabs').children) tab.onclick = () => { state = Number(tab.dataset.state); order(); render(); };
+for (const button of document.querySelectorAll('[data-send]')) button.onclick = () => { commit(); send(button.dataset.send); };
+$('reset').onclick = () => { if (confirm('Сбросить настройки островка?')) { clearTimeout(pending); send('reset'); } };
+$('save').onclick = () => { commit(); send('save:'+$('name').value.trim()); };
+$('load').onclick = () => { clearTimeout(pending); if ($('presets').value) send('load:'+$('presets').value); };
+$('warm').onclick = () => { config.first=0x392821;config.second=0x1b1918;config.artPalette=0;setForm();apply(); };
+$('black').onclick = () => { config.first=0x29292c;config.second=0x0e0e10;config.artPalette=0;setForm();apply(); };
+$('soft').onclick = () => { config.drag=65;config.speed=80;setForm();apply(); };
+$('bold').onclick = () => { config.drag=160;config.speed=120;setForm();apply(); };
+$('motion').onclick = () => {
+  if (!config) return;
+  const amount = config.drag/135;
+  preview.animate([{transform:'scale(1)'},{transform:`scale(${1+.055*amount},${1-.14*amount})`,offset:.22},
+    {transform:`matrix(${1+.13*amount},.06,.06,${1-.09*amount},0,0)`,offset:.52},{transform:'scale(1)'}],
+    {duration:650,easing:'cubic-bezier(.22,.8,.26,1)'});
+};
+host.addEventListener('message',({data}) => {
+  if (data.status) $('status').textContent = data.status;
+  if (!data.config) return;
+  if ('gif' in data) gif = data.gif;
+  const items = data.config.split('|');
+  config = {rows:items.splice(0,3)};
+  for (let i=0;i<fields.length;i++) config[fields[i][0]] = Number(items[i]);
+  if (data.presets) {
+    const select = $('presets'), selected = select.value;
+    select.replaceChildren(...data.presets.map(name => new Option(name,name)));
+    if (data.presets.includes(selected)) select.value=selected;
+  }
+  setForm();
+});
+send('ready');
+</script>
+</html>

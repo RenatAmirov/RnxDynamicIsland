@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Island Browser</title>
+<style>
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; background: #27211e; }
+  body { margin: 0; color: #f3e6da; font: 13px/1 "Segoe UI", sans-serif; }
+  form { height: 53px; display: flex; align-items: center; gap: 6px; padding: 0 11px;
+         background: linear-gradient(115deg,#362923,#25211e 70%); border-bottom: 1px solid #c18b702e; }
+  button { display: grid; place-items: center; width: 31px; height: 31px; flex: 0 0 auto; border: 0;
+           border-radius: 9px; color: #e6ccba; background: transparent; cursor: pointer; padding: 0; }
+  button:hover { background: #e3a48326; }
+  button:focus-visible, .field:focus-within { outline: 1px solid #d39371; }
+  svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6;
+        stroke-linecap: round; stroke-linejoin: round; }
+  .field { min-width: 0; flex: 1; height: 33px; display: flex; align-items: center; gap: 9px; padding: 0 11px;
+           border-radius: 10px; background: #1715149c; border: 1px solid #d1a68e29; color: #c79578; }
+  .field svg { flex: 0 0 auto; }
+  input { width: 100%; min-width: 0; font: inherit; color: #fbefe5; border: 0; background: transparent; outline: none; }
+  input::placeholder { color: #c3a99b; }
+  .submit { width: 23px; height: 23px; margin-right: -6px; }
+  .submit svg { width: 13px; }
+  .close { margin-left: 2px; }
+</style>
+<form id="navigation">
+  <button type="button" data-action="back" title="Back" aria-label="Back">
+    <svg viewBox="0 0 16 16"><path d="M10.5 3.5 6 8l4.5 4.5"/></svg>
+  </button>
+  <button type="button" data-action="reload" title="Reload" aria-label="Reload">
+    <svg viewBox="0 0 16 16"><path d="M12.8 6a5 5 0 1 0 .3 3.2M13 2.5V6H9.5"/></svg>
+  </button>
+  <label class="field">
+    <svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4"/><path d="m10 10 3 3"/></svg>
+    <input id="address" aria-label="Search or address" placeholder="Search or enter an address" autocomplete="off" spellcheck="false">
+    <button class="submit" type="submit" title="Open" aria-label="Open">
+      <svg viewBox="0 0 16 16"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg>
+    </button>
+  </label>
+  <button class="close" type="button" data-action="close" title="Close panel" aria-label="Close panel">
+    <svg viewBox="0 0 16 16"><path d="m4.5 4.5 7 7m0-7-7 7"/></svg>
+  </button>
+</form>
+<script>
+  const address = document.querySelector('#address');
+  const host = window.chrome.webview;
+  document.querySelector('#navigation').addEventListener('submit', event => {
+    event.preventDefault();
+    if (address.value.trim()) {
+      host.postMessage('navigate:' + address.value.trim());
+      address.blur();
+    }
+  });
+  document.querySelectorAll('[data-action]').forEach(button =>
+    button.addEventListener('click', () => host.postMessage(button.dataset.action)));
+  addEventListener('keydown', event => {
+    if (event.key === 'Escape') host.postMessage('close');
+    if (event.ctrlKey && event.key.toLowerCase() === 'l') {
+      event.preventDefault();
+      address.focus();
+      address.select();
+    }
+  });
+  let current = '';
+  host.addEventListener('message', event => {
+    if (event.data === 'focus') {
+      address.focus();
+      address.select();
+    } else if (event.data.startsWith('address:')) {
+      current = event.data.slice(8);
+      if (document.activeElement !== address) address.value = current;
+    }
+  });
+  address.addEventListener('blur', () => { address.value = current; });
+  host.postMessage('ready');
+</script>
+</html>
